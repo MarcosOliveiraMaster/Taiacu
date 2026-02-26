@@ -11,8 +11,7 @@ import palpites from './routes/palpites'
 export { SalaDurableObject } from './objects/SalaDurableObject'
 
 export type Env = {
-  taiacu_db: D1Database
-  taiacu_kv: KVNamespace
+  DB: D1Database
   SALA: DurableObjectNamespace
 }
 

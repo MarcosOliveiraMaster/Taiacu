@@ -1,5 +1,5 @@
 -- ================================
--- TAIAÇU — Schema do Banco D1
+-- TAIAÇU – Schema do Banco D1
 -- ================================
 
 -- Usuários
@@ -7,19 +7,20 @@ CREATE TABLE IF NOT EXISTS usuarios (
   id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   nome        TEXT NOT NULL,
   email       TEXT UNIQUE NOT NULL,
+  senha       TEXT NOT NULL,
   avatar_url  TEXT,
   criado_em   TEXT DEFAULT (datetime('now'))
 );
 
 -- Salas
 CREATE TABLE IF NOT EXISTS salas (
-  id           TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-  codigo       TEXT UNIQUE NOT NULL,
-  nome         TEXT NOT NULL,
-  criador_id   TEXT NOT NULL REFERENCES usuarios(id),
+  id            TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  codigo        TEXT UNIQUE NOT NULL,
+  nome          TEXT NOT NULL,
+  criador_id    TEXT NOT NULL REFERENCES usuarios(id),
   max_jogadores INTEGER DEFAULT 8,
-  status       TEXT DEFAULT 'aguardando', -- aguardando | em_jogo | finalizada
-  criado_em    TEXT DEFAULT (datetime('now'))
+  status        TEXT DEFAULT 'aguardando', -- aguardando | em_jogo | finalizada
+  criado_em     TEXT DEFAULT (datetime('now'))
 );
 
 -- Jogadores na Sala

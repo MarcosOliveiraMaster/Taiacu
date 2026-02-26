@@ -11,7 +11,7 @@ rodadas.post('/', async (c) => {
     return c.json({ erro: 'sala_id, musica_id e numero são obrigatórios' }, 400)
   }
 
-  const rodada = await c.env.taiacu_db
+  const rodada = await c.env.DB
     .prepare('INSERT INTO rodadas (sala_id, musica_id, numero) VALUES (?, ?, ?) RETURNING *')
     .bind(sala_id, musica_id, numero)
     .first()
@@ -34,7 +34,7 @@ rodadas.post('/', async (c) => {
 rodadas.get('/:id', async (c) => {
   const id = c.req.param('id')
 
-  const rodada = await c.env.taiacu_db
+  const rodada = await c.env.DB
     .prepare('SELECT * FROM rodadas WHERE id = ?')
     .bind(id)
     .first()
@@ -50,12 +50,12 @@ rodadas.get('/:id', async (c) => {
 rodadas.patch('/:id/finalizar', async (c) => {
   const id = c.req.param('id')
 
-  await c.env.taiacu_db
+  await c.env.DB
     .prepare("UPDATE rodadas SET status = 'finalizada' WHERE id = ?")
     .bind(id)
     .run()
 
-  const rodada = await c.env.taiacu_db
+  const rodada = await c.env.DB
     .prepare('SELECT * FROM rodadas WHERE id = ?')
     .bind(id)
     .first()

@@ -12,7 +12,7 @@ palpites.post('/', async (c) => {
   }
 
   // Busca a rodada para verificar a música
-  const rodada = await c.env.taiacu_db
+  const rodada = await c.env.DB
     .prepare('SELECT * FROM rodadas WHERE id = ?')
     .bind(rodada_id)
     .first() as any
@@ -22,7 +22,7 @@ palpites.post('/', async (c) => {
   }
 
   // Busca a música da rodada
-  const musica = await c.env.taiacu_db
+  const musica = await c.env.DB
     .prepare('SELECT * FROM musicas WHERE id = ?')
     .bind(rodada.musica_id)
     .first() as any
@@ -34,7 +34,7 @@ palpites.post('/', async (c) => {
   const correto = respostaLimpa === tituloLimpo || respostaLimpa === artistaLimpo ? 1 : 0
 
   // Salva o palpite
-  const palpite = await c.env.taiacu_db
+  const palpite = await c.env.DB
     .prepare(`
       INSERT INTO palpites (rodada_id, usuario_id, resposta, correto, tempo_ms)
       VALUES (?, ?, ?, ?, ?) RETURNING *
@@ -45,7 +45,7 @@ palpites.post('/', async (c) => {
   // Se correto, soma pontos ao jogador
   if (correto) {
     const pontos = Math.max(100 - Math.floor(tempo_ms / 100), 10)
-    await c.env.taiacu_db
+    await c.env.DB
       .prepare(`
         UPDATE jogadores_sala
         SET pontuacao = pontuacao + ?
@@ -62,7 +62,7 @@ palpites.post('/', async (c) => {
 palpites.get('/:rodadaId', async (c) => {
   const rodadaId = c.req.param('rodadaId')
 
-  const resultado = await c.env.taiacu_db
+  const resultado = await c.env.DB
     .prepare(`
       SELECT p.*, u.nome, u.avatar_url
       FROM palpites p

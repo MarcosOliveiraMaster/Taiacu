@@ -18,13 +18,13 @@ salas.post('/', async (c) => {
 
   const codigo = gerarCodigo()
 
-  const sala = await c.env.taiacu_db
+  const sala = await c.env.DB
     .prepare('INSERT INTO salas (nome, codigo, criador_id) VALUES (?, ?, ?) RETURNING *')
     .bind(nome, codigo, criador_id)
     .first()
 
   // Adiciona criador como jogador
-  await c.env.taiacu_db
+  await c.env.DB
     .prepare('INSERT INTO jogadores_sala (sala_id, usuario_id) VALUES (?, ?)')
     .bind((sala as any).id, criador_id)
     .run()
@@ -36,7 +36,7 @@ salas.post('/', async (c) => {
 salas.get('/:codigo', async (c) => {
   const codigo = c.req.param('codigo')
 
-  const sala = await c.env.taiacu_db
+  const sala = await c.env.DB
     .prepare('SELECT * FROM salas WHERE codigo = ?')
     .bind(codigo)
     .first()
@@ -46,7 +46,7 @@ salas.get('/:codigo', async (c) => {
   }
 
   // Busca jogadores da sala
-  const jogadores = await c.env.taiacu_db
+  const jogadores = await c.env.DB
     .prepare(`
       SELECT u.id, u.nome, u.avatar_url, js.pontuacao
       FROM jogadores_sala js
@@ -64,7 +64,7 @@ salas.post('/:codigo/entrar', async (c) => {
   const codigo = c.req.param('codigo')
   const { usuario_id } = await c.req.json()
 
-  const sala = await c.env.taiacu_db
+  const sala = await c.env.DB
     .prepare('SELECT * FROM salas WHERE codigo = ?')
     .bind(codigo)
     .first()
@@ -78,13 +78,13 @@ salas.post('/:codigo/entrar', async (c) => {
   }
 
   // Verifica se já está na sala
-  const jaEntrou = await c.env.taiacu_db
+  const jaEntrou = await c.env.DB
     .prepare('SELECT * FROM jogadores_sala WHERE sala_id = ? AND usuario_id = ?')
     .bind((sala as any).id, usuario_id)
     .first()
 
   if (!jaEntrou) {
-    await c.env.taiacu_db
+    await c.env.DB
       .prepare('INSERT INTO jogadores_sala (sala_id, usuario_id) VALUES (?, ?)')
       .bind((sala as any).id, usuario_id)
       .run()

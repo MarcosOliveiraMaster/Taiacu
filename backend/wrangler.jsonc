@@ -5,16 +5,14 @@
   "compatibility_date": "2025-02-26",
   "compatibility_flags": ["nodejs_compat"],
 
-  // Banco de dados D1
   "d1_databases": [
     {
-      "binding": "taiacu_db",
+      "binding": "DB",
       "database_name": "taiacu-db",
       "database_id": "27346360-e7ce-4bd2-91c5-702bdc41fb8c"
     }
   ],
 
-  // Cache KV
   "kv_namespaces": [
     {
       "binding": "taiacu_kv",
@@ -22,7 +20,6 @@
     }
   ],
 
-  // Durable Objects (tempo real / WebSocket)
   "durable_objects": {
     "bindings": [
       {
@@ -32,7 +29,6 @@
     ]
   },
 
-  // Migrations dos Durable Objects
   "migrations": [
     {
       "tag": "v1",
