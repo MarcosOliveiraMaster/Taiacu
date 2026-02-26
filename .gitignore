@@ -1,0 +1,35 @@
+# Dependências
+node_modules/
+.npm
+
+# Build
+dist/
+build/
+.output/
+
+# Cloudflare
+.wrangler/
+.dev.vars
+
+# Variáveis de ambiente (NUNCA subir ao GitHub!)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# TypeScript
+*.tsbuildinfo
