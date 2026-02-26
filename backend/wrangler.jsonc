@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "taiacu-backend",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-02-26",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Banco de dados D1
+  "d1_databases": [
+    {
+      "binding": "taiacu_db",
+      "database_name": "taiacu-db",
+      "database_id": "27346360-e7ce-4bd2-91c5-702bdc41fb8c"
+    }
+  ],
+
+  // Cache KV
+  "kv_namespaces": [
+    {
+      "binding": "taiacu_kv",
+      "id": "4dfdef59f6ae4d5d9ebe16cc831b582e"
+    }
+  ],
+
+  // Durable Objects (tempo real / WebSocket)
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SALA",
+        "class_name": "SalaDurableObject"
+      }
+    ]
+  },
+
+  // Migrations dos Durable Objects
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["SalaDurableObject"]
+    }
+  ]
+}
