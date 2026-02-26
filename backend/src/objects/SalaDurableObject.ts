@@ -23,7 +23,6 @@ type Env = {
 }
 
 export class SalaDurableObject extends DurableObject {
-  // Dados dos jogadores (sem WebSocket — gerenciado pelo Cloudflare)
   private jogadores: Map<string, JogadorInfo> = new Map()
   private fase: 'espera' | 'selecao' | 'jogo' = 'espera'
   private musicas: Musica[] = []
@@ -34,12 +33,60 @@ export class SalaDurableObject extends DurableObject {
   private modoJogo: 'sussegado' | 'arretado' = 'sussegado'
   private musicas_por_jogador: number = 2
   private rodadaTimer: ReturnType<typeof setTimeout> | null = null
+  private estadoCarregado = false
   private env: Env
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.env = env
+    // Restaura estado persistido ao acordar do hibernation
+    this.ctx.blockConcurrencyWhile(async () => {
+      await this.carregarEstado()
+    })
   }
+
+  // ─── Persistência ────────────────────────────────────────────
+
+  private async carregarEstado() {
+    const storage = this.ctx.storage
+    const fase = await storage.get<'espera' | 'selecao' | 'jogo'>('fase')
+    const musicas = await storage.get<Musica[]>('musicas')
+    const jogadoresArr = await storage.get<JogadorInfo[]>('jogadores')
+    const rodadaAtual = await storage.get<number>('rodadaAtual')
+    const musicaAtual = await storage.get<Musica | null>('musicaAtual')
+    const modoJogo = await storage.get<'sussegado' | 'arretado'>('modoJogo')
+    const musicas_por_jogador = await storage.get<number>('musicas_por_jogador')
+
+    if (fase) this.fase = fase
+    if (musicas) this.musicas = musicas
+    if (rodadaAtual) this.rodadaAtual = rodadaAtual
+    if (musicaAtual !== undefined) this.musicaAtual = musicaAtual
+    if (modoJogo) this.modoJogo = modoJogo
+    if (musicas_por_jogador) this.musicas_por_jogador = musicas_por_jogador
+
+    // Restaura jogadores (sem WebSocket — serão reconectados)
+    if (jogadoresArr) {
+      for (const j of jogadoresArr) {
+        this.jogadores.set(j.id, j)
+      }
+    }
+
+    this.estadoCarregado = true
+    console.log(`[DO] Estado restaurado: fase=${this.fase}, jogadores=${this.jogadores.size}`)
+  }
+
+  private async salvarEstado() {
+    const storage = this.ctx.storage
+    await storage.put('fase', this.fase)
+    await storage.put('musicas', this.musicas)
+    await storage.put('rodadaAtual', this.rodadaAtual)
+    await storage.put('musicaAtual', this.musicaAtual)
+    await storage.put('modoJogo', this.modoJogo)
+    await storage.put('musicas_por_jogador', this.musicas_por_jogador)
+    await storage.put('jogadores', Array.from(this.jogadores.values()))
+  }
+
+  // ─── WebSocket ────────────────────────────────────────────────
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
@@ -50,13 +97,17 @@ export class SalaDurableObject extends DurableObject {
 
       const usuario_id = url.searchParams.get('usuario_id') ?? 'anonimo'
       const nome = decodeURIComponent(url.searchParams.get('nome') ?? 'Jogador')
-      this.modoJogo = (url.searchParams.get('modo_jogo') ?? 'sussegado') as 'sussegado' | 'arretado'
-      this.musicas_por_jogador = parseInt(url.searchParams.get('musicas_por_jogador') ?? '2')
 
-      // Aceita WebSocket com TAG = usuario_id (permite identificar depois)
+      // Só atualiza config se vier como parâmetro válido
+      const modoParam = url.searchParams.get('modo_jogo')
+      const musicasParam = url.searchParams.get('musicas_por_jogador')
+      if (modoParam) this.modoJogo = modoParam as 'sussegado' | 'arretado'
+      if (musicasParam) this.musicas_por_jogador = parseInt(musicasParam)
+
+      // Aceita com tag = usuario_id
       this.ctx.acceptWebSocket(server, [usuario_id])
 
-      // Registra jogador (preserva dados se reconectar)
+      // Registra ou atualiza jogador
       const existente = this.jogadores.get(usuario_id)
       this.jogadores.set(usuario_id, {
         id: usuario_id,
@@ -66,13 +117,14 @@ export class SalaDurableObject extends DurableObject {
         musicas_count: existente?.musicas_count ?? 0,
       })
 
-      // Envia estado atual só para esse jogador
+      await this.salvarEstado()
+
+      // Envia estado atual para o novo jogador
       server.send(JSON.stringify({
         tipo: 'jogadores',
         jogadores: this.getJogadoresPublico(),
       }))
 
-      // Se já está em seleção, envia progresso atual
       if (this.fase === 'selecao') {
         server.send(JSON.stringify({
           tipo: 'fase_selecao',
@@ -88,7 +140,18 @@ export class SalaDurableObject extends DurableObject {
         }))
       }
 
-      // Avisa todos sobre o novo jogador
+      if (this.fase === 'jogo' && this.musicaAtual) {
+        server.send(JSON.stringify({
+          tipo: 'rodada_iniciada',
+          numero: this.rodadaAtual,
+          total: this.musicas.length,
+          musica: {
+            preview_url: this.musicaAtual.preview_url,
+            cover_url: this.musicaAtual.cover_url,
+          },
+        }))
+      }
+
       this.broadcastJogadores()
 
       return new Response(null, { status: 101, webSocket: client })
@@ -98,7 +161,6 @@ export class SalaDurableObject extends DurableObject {
   }
 
   async webSocketMessage(ws: WebSocket, message: string) {
-    // Identifica o jogador pela tag
     const tags = this.ctx.getTags(ws)
     const usuario_id = tags[0] ?? 'anonimo'
 
@@ -111,34 +173,33 @@ export class SalaDurableObject extends DurableObject {
 
     console.log(`[WS] tipo=${dados.tipo} usuario=${usuario_id}`)
 
-    // Criador inicia fase de seleção
     if (dados.tipo === 'iniciar_selecao') {
       if (this.fase !== 'espera') return
       this.fase = 'selecao'
+      await this.salvarEstado()
       this.broadcast({ tipo: 'fase_selecao', musicas_por_jogador: this.musicas_por_jogador })
       return
     }
 
-    // Jogador adicionou UMA música
     if (dados.tipo === 'musica_adicionada') {
-      if (dados.sync) return // ignora o ping de sync
+      if (dados.sync) return
       const jogador = this.jogadores.get(usuario_id)
       if (!jogador) return
       jogador.musicas_count = (jogador.musicas_count ?? 0) + 1
+      await this.salvarEstado()
       this.broadcastProgresso()
       return
     }
 
-    // Jogador removeu UMA música
     if (dados.tipo === 'musica_removida') {
       const jogador = this.jogadores.get(usuario_id)
       if (!jogador) return
       jogador.musicas_count = Math.max(0, (jogador.musicas_count ?? 1) - 1)
+      await this.salvarEstado()
       this.broadcastProgresso()
       return
     }
 
-    // Jogador confirmou todas as músicas
     if (dados.tipo === 'musicas_selecionadas') {
       const musicas = dados.musicas as Musica[]
       const jogador = this.jogadores.get(usuario_id)
@@ -161,7 +222,6 @@ export class SalaDurableObject extends DurableObject {
         }
       }
 
-      // Salva no D1
       for (const m of musicas) {
         try {
           await this.env.DB
@@ -171,12 +231,10 @@ export class SalaDurableObject extends DurableObject {
         } catch {}
       }
 
+      await this.salvarEstado()
       this.broadcastProgresso()
 
-      // Verifica se todos confirmaram
-      const confirmados = Array.from(this.jogadores.values())
-        .filter((j) => j.confirmou_selecao)
-
+      const confirmados = Array.from(this.jogadores.values()).filter((j) => j.confirmou_selecao)
       console.log(`[SELECAO] ${confirmados.length}/${this.jogadores.size} confirmaram`)
 
       if (confirmados.length === this.jogadores.size && this.jogadores.size > 0) {
@@ -185,7 +243,6 @@ export class SalaDurableObject extends DurableObject {
       return
     }
 
-    // Voto
     if (dados.tipo === 'voto') {
       const votado_id = dados.votado_id as string
       const tempo_ms = dados.tempo_ms as number
@@ -197,7 +254,7 @@ export class SalaDurableObject extends DurableObject {
       const votantes = Array.from(this.jogadores.keys())
         .filter((id) => id !== this.musicaAtual?.dono_id)
 
-      console.log(`[VOTO] ${this.votos.size}/${votantes.length} votos`)
+      console.log(`[VOTO] ${this.votos.size}/${votantes.length}`)
 
       if (this.votos.size >= votantes.length) {
         if (this.rodadaTimer) clearTimeout(this.rodadaTimer)
@@ -211,30 +268,30 @@ export class SalaDurableObject extends DurableObject {
     const tags = this.ctx.getTags(ws)
     const usuario_id = tags[0]
     if (usuario_id) {
-      this.jogadores.delete(usuario_id)
+      // Não remove o jogador — apenas desconecta (pode reconectar)
       console.log(`[WS] ${usuario_id} desconectou`)
     }
+    // Envia lista atualizada de quem está conectado agora
     this.broadcastJogadores()
   }
 
-  async webSocketError(ws: WebSocket, error: unknown) {
-    console.error('[WS] erro:', error)
+  async webSocketError(ws: WebSocket) {
     const tags = this.ctx.getTags(ws)
-    const usuario_id = tags[0]
-    if (usuario_id) this.jogadores.delete(usuario_id)
+    console.error(`[WS] erro para ${tags[0]}`)
   }
+
+  // ─── Jogo ─────────────────────────────────────────────────────
 
   private async iniciarJogo() {
     this.fase = 'jogo'
     this.musicas = this.musicas.sort(() => Math.random() - 0.5)
     this.rodadaAtual = 0
+    await this.salvarEstado()
 
     console.log(`[JOGO] Iniciando com ${this.musicas.length} músicas`)
-
     this.broadcast({ tipo: 'jogo_iniciando' })
 
-    // Pequeno delay para o frontend navegar
-    await new Promise((r) => setTimeout(r, 800))
+    await new Promise((r) => setTimeout(r, 1000))
     await this.proximaRodada()
   }
 
@@ -243,12 +300,15 @@ export class SalaDurableObject extends DurableObject {
 
     if (this.rodadaAtual > this.musicas.length) {
       this.broadcast({ tipo: 'fim_de_jogo', placar: this.getPlacar() })
+      this.fase = 'espera'
+      await this.salvarEstado()
       return
     }
 
     this.musicaAtual = this.musicas[this.rodadaAtual - 1]
     this.votos = new Map()
     this.temposVoto = new Map()
+    await this.salvarEstado()
 
     console.log(`[RODADA] ${this.rodadaAtual}/${this.musicas.length}: ${this.musicaAtual.titulo}`)
 
@@ -278,7 +338,6 @@ export class SalaDurableObject extends DurableObject {
       if (votadoId !== dono_id) continue
       const jogador = this.jogadores.get(votanteId)
       if (!jogador) continue
-
       if (this.modoJogo === 'sussegado') {
         jogador.pontuacao += 1
       } else {
@@ -295,6 +354,8 @@ export class SalaDurableObject extends DurableObject {
       }
     }
 
+    await this.salvarEstado()
+
     this.broadcast({
       tipo: 'resultado_rodada',
       resultado: { dono_id, dono_nome: this.musicaAtual.dono_nome, votos: votosObj },
@@ -304,27 +365,25 @@ export class SalaDurableObject extends DurableObject {
     setTimeout(async () => {
       if (this.rodadaAtual >= this.musicas.length) {
         this.broadcast({ tipo: 'fim_de_jogo', placar: this.getPlacar() })
+        this.fase = 'espera'
+        await this.salvarEstado()
       } else {
         await this.proximaRodada()
       }
     }, 5500)
   }
 
-  // ─── Helpers ────────────────────────────────────────────────
+  // ─── Helpers ─────────────────────────────────────────────────
 
   private broadcast(dados: unknown) {
     const msg = JSON.stringify(dados)
-    // USA getWebSockets() — correto para acceptWebSocket com hibernação
     for (const ws of this.ctx.getWebSockets()) {
       try { ws.send(msg) } catch {}
     }
   }
 
   private broadcastJogadores() {
-    this.broadcast({
-      tipo: 'jogadores',
-      jogadores: this.getJogadoresPublico(),
-    })
+    this.broadcast({ tipo: 'jogadores', jogadores: this.getJogadoresPublico() })
   }
 
   private broadcastProgresso() {
@@ -340,8 +399,7 @@ export class SalaDurableObject extends DurableObject {
 
   private getProgresso() {
     return Array.from(this.jogadores.values()).map((j) => ({
-      id: j.id,
-      nome: j.nome,
+      id: j.id, nome: j.nome,
       musicas_count: j.musicas_count ?? 0,
       confirmou: j.confirmou_selecao,
       limite: this.musicas_por_jogador,
