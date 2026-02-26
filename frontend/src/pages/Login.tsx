@@ -18,13 +18,9 @@ export default function Login() {
     e.preventDefault()
     setErro('')
     setCarregando(true)
-
     try {
-      const endpoint = modo === 'login' ? '/auth/entrar' : '/auth/cadastrar' // âœ… CORRIGIDO
-      const payload = modo === 'login'
-        ? { email, senha }
-        : { nome, email, senha }
-
+      const endpoint = modo === 'login' ? '/auth/entrar' : '/auth/cadastrar'
+      const payload = modo === 'login' ? { email, senha } : { nome, email, senha }
       const res = await api.post(endpoint, payload)
       setUsuario(res.data.usuario)
       navigate('/lobby')
@@ -37,87 +33,111 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-5 py-10">
 
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-black text-purple-400 tracking-widest">
-            ðŸŽµ TAIÃ‡U
-          </h1>
-          <p className="text-gray-400 mt-2">Adivinhe a mÃºsica mais rÃ¡pido!</p>
+      {/* Logo */}
+      <div className="text-center mb-10">
+        <div className="text-6xl mb-3">🎵</div>
+        <h1 className="text-5xl font-black text-purple-400 tracking-widest">TAIAÇU</h1>
+        <p className="text-gray-400 mt-3 text-base">Adivinhe a música mais rápido!</p>
+      </div>
+
+      {/* Card */}
+      <div className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-purple-900/60">
+
+        {/* Tabs */}
+        <div className="flex mb-6 bg-gray-800 rounded-2xl p-1 gap-1">
+          <button
+            onClick={() => { setModo('login'); setErro('') }}
+            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
+              modo === 'login'
+                ? 'bg-purple-600 text-white shadow-lg'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Entrar
+          </button>
+          <button
+            onClick={() => { setModo('registro'); setErro('') }}
+            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
+              modo === 'registro'
+                ? 'bg-purple-600 text-white shadow-lg'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Cadastrar
+          </button>
         </div>
 
-        {/* Card */}
-        <div className="bg-gray-900 rounded-2xl p-8 shadow-xl border border-purple-900">
-
-          {/* Tabs */}
-          <div className="flex mb-6 bg-gray-800 rounded-xl p-1">
-            <button
-              onClick={() => setModo('login')}
-              className={`flex-1 py-2 rounded-lg font-bold transition-all ${
-                modo === 'login'
-                  ? 'bg-purple-600 text-white'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Entrar
-            </button>
-            <button
-              onClick={() => setModo('registro')}
-              className={`flex-1 py-2 rounded-lg font-bold transition-all ${
-                modo === 'registro'
-                  ? 'bg-purple-600 text-white'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Cadastrar
-            </button>
-          </div>
-
-          {/* FormulÃ¡rio */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {modo === 'registro' && (
+        {/* Formulário */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {modo === 'registro' && (
+            <div>
+              <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1.5 block">
+                Seu nome
+              </label>
               <input
                 type="text"
-                placeholder="Seu nome"
+                placeholder="Como você quer ser chamado?"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                className="w-full bg-gray-800 border border-gray-700 rounded-2xl px-4 py-4 text-white text-base placeholder-gray-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
                 required
               />
-            )}
+            </div>
+          )}
+
+          <div>
+            <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1.5 block">
+              Email
+            </label>
             <input
               type="email"
-              placeholder="Seu email"
+              placeholder="seu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+              className="w-full bg-gray-800 border border-gray-700 rounded-2xl px-4 py-4 text-white text-base placeholder-gray-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
               required
+              autoComplete="email"
             />
+          </div>
+
+          <div>
+            <label className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1.5 block">
+              Senha
+            </label>
             <input
               type="password"
-              placeholder="Sua senha"
+              placeholder="••••••••"
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+              className="w-full bg-gray-800 border border-gray-700 rounded-2xl px-4 py-4 text-white text-base placeholder-gray-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
               required
+              autoComplete={modo === 'login' ? 'current-password' : 'new-password'}
             />
+          </div>
 
-            {erro && (
+          {erro && (
+            <div className="bg-red-900/30 border border-red-500/50 rounded-2xl px-4 py-3">
               <p className="text-red-400 text-sm text-center">{erro}</p>
-            )}
+            </div>
+          )}
 
-            <button
-              type="submit"
-              disabled={carregando}
-              className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-all"
-            >
-              {carregando ? 'â³ Aguarde...' : modo === 'login' ? 'ðŸŽ® Entrar' : 'ðŸš€ Cadastrar'}
-            </button>
-          </form>
-        </div>
+          <button
+            type="submit"
+            disabled={carregando}
+            className="w-full bg-purple-600 hover:bg-purple-500 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-4 rounded-2xl text-lg transition-all mt-2 shadow-lg shadow-purple-900/40"
+          >
+            {carregando
+              ? '⏳ Aguarde...'
+              : modo === 'login' ? '🎮 Entrar' : '🚀 Cadastrar'}
+          </button>
+        </form>
       </div>
+
+      <p className="text-gray-600 text-xs mt-8 text-center">
+        Descubra quem escolheu cada música! 🎶
+      </p>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Lobby from './pages/Lobby'
 import Sala from './pages/Sala'
+import Selecao from './pages/Selecao'
 import Jogo from './pages/Jogo'
 import { useStore } from './store'
 
@@ -15,15 +16,10 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/lobby" element={
-          <RotaProtegida><Lobby /></RotaProtegida>
-        } />
-        <Route path="/sala" element={
-          <RotaProtegida><Sala /></RotaProtegida>
-        } />
-        <Route path="/jogo" element={
-          <RotaProtegida><Jogo /></RotaProtegida>
-        } />
+        <Route path="/lobby" element={<RotaProtegida><Lobby /></RotaProtegida>} />
+        <Route path="/sala" element={<RotaProtegida><Sala /></RotaProtegida>} />
+        <Route path="/selecao" element={<RotaProtegida><Selecao /></RotaProtegida>} />
+        <Route path="/jogo" element={<RotaProtegida><Jogo /></RotaProtegida>} />
       </Routes>
     </BrowserRouter>
   )

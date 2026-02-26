@@ -7,6 +7,7 @@ import salas from './routes/salas'
 import ws from './routes/ws'
 import rodadas from './routes/rodadas'
 import palpites from './routes/palpites'
+import musicas from './routes/musicas'
 
 export { SalaDurableObject } from './objects/SalaDurableObject'
 
@@ -17,28 +18,26 @@ export type Env = {
 
 const app = new Hono<{ Bindings: Env }>()
 
-// Middlewares
 app.use('*', logger())
 app.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
 }))
 
-// Health check
 app.get('/', (c) => {
   return c.json({
     status: 'ok',
     app: 'TAIAÇU',
-    version: '0.1.0',
-    rotas: ['/auth', '/salas', '/ws', '/rodadas', '/palpites'],
+    version: '0.2.0',
+    rotas: ['/auth', '/salas', '/ws', '/rodadas', '/palpites', '/musicas'],
   })
 })
 
-// Rotas
 app.route('/auth', auth)
 app.route('/salas', salas)
 app.route('/ws', ws)
 app.route('/rodadas', rodadas)
 app.route('/palpites', palpites)
+app.route('/musicas', musicas)
 
 export default app
