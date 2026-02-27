@@ -5,9 +5,6 @@ class WebSocketManager {
   private handlers: Map<string, Set<MessageHandler>> = new Map()
   private url: string = ''
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 2000;
 
   connect(url: string): WebSocket {
     if (
@@ -29,11 +26,6 @@ class WebSocketManager {
     this.socket.onopen = () => {
       console.log('✅ WS conectado:', url)
       this.emit('__connected', {})
-      this.reconnectAttempts = 0;
-      if (this.reconnectTimer) {
-        clearTimeout(this.reconnectTimer);
-        this.reconnectTimer = null;
-      }
     }
 
     this.socket.onmessage = (event) => {
@@ -47,14 +39,6 @@ class WebSocketManager {
     this.socket.onclose = (e) => {
       console.log('❌ WS desconectado:', e.code)
       this.emit('__disconnected', { code: e.code })
-      // Reconexão automática
-      if (this.reconnectAttempts < this.maxReconnectAttempts && this.url) {
-        this.reconnectAttempts++;
-        this.reconnectTimer = setTimeout(() => {
-          console.log(`🔄 Tentando reconectar... (${this.reconnectAttempts})`);
-          this.connect(this.url);
-        }, this.reconnectDelay * this.reconnectAttempts);
-      }
     }
 
     this.socket.onerror = (e) => {
@@ -91,12 +75,10 @@ class WebSocketManager {
 
   disconnect() {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
-    this.reconnectTimer = null;
     this.socket?.close()
     this.socket = null
     this.handlers.clear()
     this.url = ''
-    this.reconnectAttempts = 0;
   }
 
   getSocket(): WebSocket | null {
