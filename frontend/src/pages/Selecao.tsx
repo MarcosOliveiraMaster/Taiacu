@@ -103,20 +103,35 @@ export default function Selecao() {
   }
 
   function adicionarMusica(m: ResultadoDeezer) {
-    if (confirmado || selecionadas.length >= limite) return
-    if (selecionadas.find((s) => s.deezer_id === String(m.id))) return
+    console.log('adicionarMusica chamada', { confirmado, selecionadas, limite, musica: m });
+    if (confirmado) {
+      console.warn('Não pode adicionar: já confirmado');
+      return;
+    }
+    if (selecionadas.length >= limite) {
+      console.warn('Não pode adicionar: limite atingido');
+      return;
+    }
+    if (selecionadas.find((s) => s.deezer_id === String(m.id))) {
+      console.warn('Não pode adicionar: música já selecionada');
+      return;
+    }
 
-    setSelecionadas((prev) => [...prev, {
-      deezer_id: String(m.id),
-      titulo: m.title,
-      artista: m.artist.name,
-      preview_url: m.preview,
-      cover_url: m.album.cover_medium,
-      dono_id: usuario!.id,
-      dono_nome: usuario!.nome,
-    }])
+    setSelecionadas((prev) => {
+      const novo = [...prev, {
+        deezer_id: String(m.id),
+        titulo: m.title,
+        artista: m.artist.name,
+        preview_url: m.preview,
+        cover_url: m.album.cover_medium,
+        dono_id: usuario!.id,
+        dono_nome: usuario!.nome,
+      }];
+      console.log('Nova lista de selecionadas:', novo);
+      return novo;
+    });
 
-    wsManager.send({ tipo: 'musica_adicionada', usuario_id: usuario?.id })
+    wsManager.send({ tipo: 'musica_adicionada', usuario_id: usuario?.id });
   }
 
   function removerMusica(id: string) {
@@ -126,15 +141,23 @@ export default function Selecao() {
   }
 
   function confirmarSelecao() {
-    if (selecionadas.length < limite || confirmado) return
-    setMusicasSelecionadas(selecionadas)
-    setConfirmado(true)
-    audioRef.current?.pause()
+    if (selecionadas.length < limite) {
+      console.warn('Não pode confirmar: músicas insuficientes');
+      return;
+    }
+    if (confirmado) {
+      console.warn('Já confirmado');
+      return;
+    }
+    setMusicasSelecionadas(selecionadas);
+    setConfirmado(true);
+    audioRef.current?.pause();
     wsManager.send({
       tipo: 'musicas_selecionadas',
       usuario_id: usuario?.id,
       musicas: selecionadas,
-    })
+    });
+    console.log('Seleção confirmada:', selecionadas);
   }
 
   const jogadoresExibidos = progresso.length > 0
