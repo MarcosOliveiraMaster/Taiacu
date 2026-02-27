@@ -5,10 +5,11 @@ class WebSocketManager {
   private handlers: Map<string, Set<MessageHandler>> = new Map()
   private url: string = ''
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
-  private intentionalClose = false
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 2000;
 
   connect(url: string): WebSocket {
-    // Se já está conectado na mesma URL, retorna o existente
     if (
       this.socket &&
       (this.socket.readyState === WebSocket.OPEN ||
@@ -18,27 +19,27 @@ class WebSocketManager {
       return this.socket
     }
 
-    // Fecha conexão anterior se existir
     if (this.socket) {
-      this.intentionalClose = true
       this.socket.close()
     }
 
     this.url = url
-    this.intentionalClose = false
     this.socket = new WebSocket(url)
 
     this.socket.onopen = () => {
       console.log('✅ WS conectado:', url)
       this.emit('__connected', {})
+      this.reconnectAttempts = 0;
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
     }
 
     this.socket.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data)
-        // Emite para handlers do tipo específico
         this.emit(msg.tipo, msg)
-        // Emite para handlers que escutam tudo
         this.emit('*', msg)
       } catch {}
     }
@@ -46,6 +47,14 @@ class WebSocketManager {
     this.socket.onclose = (e) => {
       console.log('❌ WS desconectado:', e.code)
       this.emit('__disconnected', { code: e.code })
+      // Reconexão automática
+      if (this.reconnectAttempts < this.maxReconnectAttempts && this.url) {
+        this.reconnectAttempts++;
+        this.reconnectTimer = setTimeout(() => {
+          console.log(`🔄 Tentando reconectar... (${this.reconnectAttempts})`);
+          this.connect(this.url);
+        }, this.reconnectDelay * this.reconnectAttempts);
+      }
     }
 
     this.socket.onerror = (e) => {
@@ -69,8 +78,6 @@ class WebSocketManager {
       this.handlers.set(tipo, new Set())
     }
     this.handlers.get(tipo)!.add(handler)
-
-    // Retorna função de cleanup
     return () => {
       this.handlers.get(tipo)?.delete(handler)
     }
@@ -83,12 +90,13 @@ class WebSocketManager {
   }
 
   disconnect() {
-    this.intentionalClose = true
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = null;
     this.socket?.close()
     this.socket = null
     this.handlers.clear()
     this.url = ''
+    this.reconnectAttempts = 0;
   }
 
   getSocket(): WebSocket | null {
@@ -100,5 +108,4 @@ class WebSocketManager {
   }
 }
 
-// Singleton global
 export const wsManager = new WebSocketManager()
