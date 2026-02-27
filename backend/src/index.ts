@@ -8,6 +8,7 @@ import ws from './routes/ws'
 import rodadas from './routes/rodadas'
 import palpites from './routes/palpites'
 import musicas from './routes/musicas'
+import proxy from './routes/proxy'
 
 export { SalaDurableObject } from './objects/SalaDurableObject'
 
@@ -39,5 +40,6 @@ app.route('/ws', ws)
 app.route('/rodadas', rodadas)
 app.route('/palpites', palpites)
 app.route('/musicas', musicas)
+app.route('/proxy', proxy)
 
 export default app

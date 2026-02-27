@@ -75,9 +75,7 @@ export default function Selecao() {
     buscaTimer.current = setTimeout(async () => {
       setBuscando(true)
       try {
-        const res = await fetch(
-          `https://corsproxy.io/?https://api.deezer.com/search?q=${encodeURIComponent(busca)}&limit=12`
-        )
+        const res = await fetch(`/proxy/deezer?q=${encodeURIComponent(busca)}`)
         const data = await res.json()
         setResultados(data.data ?? [])
       } catch {
